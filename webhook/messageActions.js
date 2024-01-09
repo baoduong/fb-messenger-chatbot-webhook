@@ -1,14 +1,16 @@
 require("dotenv").config();
 const axios = require("axios");
+const { chat } = require("./ai");
 // Handles messages events
-function handleMessage(sender_psid, received_message) {
-  let response;
+async function handleMessage(sender_psid, received_message) {
+  let response, history;
 
   // Check if the message contains text
   if (received_message.text) {
     // Create the payload for a basic text message
+    const answer = await chat(received_message.text, sender_psid, history);
     response = {
-      text: `You sent the message: "${received_message.text}". Now send me an image!`,
+      text: answer,
     };
   } else if (received_message.attachments) {
     // Gets the URL of the message attachment
@@ -43,7 +45,7 @@ function handleMessage(sender_psid, received_message) {
   }
 
   // Sends the response message
-  callSendAPI(sender_psid, response);
+  await callSendAPI(sender_psid, response);
 }
 
 // Handles messaging_postbacks events
@@ -64,7 +66,7 @@ function handlePostback(sender_psid, received_postback) {
 }
 
 // Sends response messages via the Send API
-function callSendAPI(sender_psid, response) {
+async function callSendAPI(sender_psid, response) {
   // Construct the message body
   let request_body = {
     recipient: {
@@ -88,8 +90,25 @@ function callSendAPI(sender_psid, response) {
     });
 }
 
+function verifyRequestSignature(req, res, buf) {
+  var signature = req.headers["x-hub-signature-256"];
+
+  if (!signature) {
+    console.warn(`Couldn't find "x-hub-signature-256" in headers.`);
+  } else {
+    var elements = signature.split("=");
+    var signatureHash = elements[1];
+    var expectedHash = crypto
+      .createHmac("sha256", config.appSecret)
+      .update(buf)
+      .digest("hex");
+    if (signatureHash != expectedHash) {
+      throw new Error("Couldn't validate the request signature.");
+    }
+  }
+}
 module.exports = {
   handlePostback,
   handleMessage,
-  callSendAPI,
+  verifyRequestSignature,
 };

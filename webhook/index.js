@@ -5,13 +5,15 @@ const { urlencoded, json } = require("body-parser");
 const functions = require("firebase-functions");
 require("dotenv").config();
 const { handleMessage, handlePostback } = require("./messageActions");
+const { chat } = require("./ai");
 let config = {
   verifyToken: process.env.SECRET,
   pageAccessToken: process.env.PAGE_ACCESS_TOKEN,
 };
 
-app.get("/health-check", (req, res) => {
-  res.send("webhook is ready");
+app.get("/health-check", async (req, res) => {
+  const msg = await chat("Bạn có khoẻ không?", null, []);
+  res.send(msg);
 });
 
 app.post("/webhook", (req, res) => {
@@ -65,24 +67,6 @@ app.get("/webhook", (req, res) => {
     }
   }
 });
-
-function verifyRequestSignature(req, res, buf) {
-  var signature = req.headers["x-hub-signature-256"];
-
-  if (!signature) {
-    console.warn(`Couldn't find "x-hub-signature-256" in headers.`);
-  } else {
-    var elements = signature.split("=");
-    var signatureHash = elements[1];
-    var expectedHash = crypto
-      .createHmac("sha256", config.appSecret)
-      .update(buf)
-      .digest("hex");
-    if (signatureHash != expectedHash) {
-      throw new Error("Couldn't validate the request signature.");
-    }
-  }
-}
 
 app.listen(3000, () => {
   console.log("Server started on port 3000");
